@@ -1,0 +1,67 @@
+#define BLYNK_TEMPLATE_ID "TMPL3hZHgk03W"
+#define BLYNK_TEMPLATE_NAME "Sun Tracking Solar Panel"
+#define BLYNK_AUTH_TOKEN "QCk8D4CiOttyzpzTb53pGdwEwwY_kC2z"
+
+#include <WiFi.h>
+#include <BlynkSimpleEsp32.h>
+#include <ESP32Servo.h>
+#include "DHT.h"
+
+char ssid[] = "Abhi****";
+char pass[] = "********";
+
+Servo myservo;
+int pos = 90;
+const int servoPin = 18;
+const int ldrLeft = 34;
+const int ldrRight = 35;
+int threshold = 50; // Diff adjust karne ke liye
+
+#define DHTPIN 4
+#define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE);
+
+BlynkTimer timer;
+
+// Function for Sensors & Blynk Update
+void updateSystem() {
+  // 1. DHT Data
+  float h = dht.readHumidity();
+  float t = dht.readTemperature();
+  if (!isnan(h) && !isnan(t)) {
+    Blynk.virtualWrite(V0, t);
+    Blynk.virtualWrite(V1, h);
+  }
+
+  // 2. LDR Logic & Servo Movement
+  int leftVal = analogRead(ldrLeft);
+  int rightVal = analogRead(ldrRight);
+  
+  if (abs(leftVal - rightVal) > threshold) {
+    if (leftVal > rightVal && pos > 0) pos -= 2; 
+    else if (rightVal > leftVal && pos < 180) pos += 2;
+    myservo.write(pos);
+  }
+
+  // 3. Update Widgets
+  Blynk.virtualWrite(V2, pos);
+  Blynk.virtualWrite(V3, leftVal);
+  Blynk.virtualWrite(V4, rightVal);
+}
+
+void setup() {
+  Serial.begin(115200);
+  myservo.attach(servoPin);
+  myservo.write(pos);
+  dht.begin();
+  
+  Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
+  
+  // Update every 500ms for smooth tracking
+  timer.setInterval(500L, updateSystem);
+}
+
+void loop() {
+  Blynk.run();
+  timer.run();
+}
